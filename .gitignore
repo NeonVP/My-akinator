@@ -1,0 +1,5 @@
+/.cache
+/dump
+*.json
+akinator
+akinator-debug
