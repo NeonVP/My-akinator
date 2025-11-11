@@ -28,9 +28,8 @@ void Game( Tree_t* tree );
 
 Node_t* AskQuestion ( Node_t* current );
 // Node_t* AddQuestuion( Node_t* node, char* question, char* new_object, const AnswerPosition answer_for_new_question );
-Node_t* AddQuestion(Tree_t* tree, Node_t* leaf, const char* new_question, char* new_object, AnswerPosition answer_for_new_question);
+Node_t* AddQuestion( Tree_t* tree, Node_t* leaf, const char* new_question, char* new_object, AnswerPosition answer_for_new_question );
 
-void    SaveTree( Tree_t* tree );
-Node_t* LoadTree();
+void TreeSaveToFile( const Tree_t* tree, const char* filename );
 
 #endif

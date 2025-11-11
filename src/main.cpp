@@ -13,5 +13,7 @@ int main() {
 
     Game( tree );
 
+    TreeSaveToFile( tree, "base.txt" );
+
     TreeDtor( &tree );
 }

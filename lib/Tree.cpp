@@ -130,9 +130,9 @@ void NodeDump( const Node_t* node, FILE* dot_stream ) {
         "\t\t\t<TD> \n"
         "\t\t\t\t<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"2\"> \n"
         "\t\t\t\t\t<TR> \n"
-        "\t\t\t\t\t\t<TD PORT=\"left\" BGCOLOR=\"#%X\">%s</TD> \n"
+        "\t\t\t\t\t\t<TD PORT=\"left\" BGCOLOR=\"#%X\">%s - %lX</TD> \n"
         "\t\t\t\t\t\t<TD><FONT POINT-SIZE=\"10\">│</FONT></TD> \n"
-        "\t\t\t\t\t\t<TD PORT=\"right\" BGCOLOR=\"#%X\">%s</TD> \n"
+        "\t\t\t\t\t\t<TD PORT=\"right\" BGCOLOR=\"#%X\">%s - %lX</TD> \n"
         "\t\t\t\t\t</TR> \n"
         "\t\t\t\t</TABLE> \n"
         "\t\t\t</TD> \n"
@@ -144,9 +144,9 @@ void NodeDump( const Node_t* node, FILE* dot_stream ) {
         crc32_ptr( node->parent ), ( uintptr_t ) node->parent,
         node->value, ( node->left == 0 && node->right == 0 ) ? ( "" ) : ( "?" ),
         ( node->left == 0 )  ? ( fill_color ) : ( crc32_ptr( node->left ) ),
-        ( node->left == 0 )  ? ( "0" ) : ( "Да" ),
+        ( node->left == 0 )  ? ( "0" ) : ( "Да" ), ( uintptr_t ) node->right,
         ( node->right == 0 ) ? ( fill_color ) : ( crc32_ptr( node->right ) ),
-        ( node->right == 0 ) ? ( "0" ) : ( "Нет" )
+        ( node->right == 0 ) ? ( "0" ) : ( "Нет" ), ( uintptr_t ) node->left
 
     );
 
