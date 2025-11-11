@@ -38,12 +38,12 @@ enum DirectionType {
     LEFT  = 1
 };
 
-Tree_t* TreeCtor( const TreeData_t root_value );
+Tree_t*      TreeCtor( const TreeData_t root_value );
 TreeStatus_t TreeDtor( Tree_t** tree );
 
 TreeStatus_t TreeCreateNode( Node_t* node, const DirectionType direction,  const TreeData_t new_value, Node_t** new_node_ptr );
 
-Node_t* NodeCreate( TreeData_t field, Node_t* parent );
+Node_t* NodeCreate( const TreeData_t field, Node_t* parent );
 TreeStatus_t NodeDelete( Node_t* node );
 
 void TreeDump( const Tree_t* tree );

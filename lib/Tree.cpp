@@ -12,13 +12,13 @@
 const uint32_t fill_color = 0xb6b4b4;
 
 Tree_t* TreeCtor( const TreeData_t root_value ) {
-    Tree_t* new_tree = ( Tree_t* ) calloc ( 1, sizeof(*new_tree) );
+    Tree_t* new_tree = ( Tree_t* ) calloc ( 1, sizeof( *new_tree ) );
     assert( new_tree && "Mempry allocation error" );
 
     new_tree->root = ( Node_t* ) calloc ( 1, sizeof( * ( new_tree->root ) ) );
     assert( new_tree->root && "Memory allocation error" );
 
-    new_tree->root->value = root_value;
+    new_tree->root->value = strdup( root_value );
 
     return new_tree;
 }
@@ -34,7 +34,7 @@ TreeStatus_t TreeDtor( Tree_t **tree ) {
     return SUCCESS;
 }
 
-Node_t* NodeCreate( TreeData_t field, Node_t* parent ) {
+Node_t* NodeCreate( const TreeData_t field, Node_t* parent ) {
     Node_t* new_node = ( Node_t* ) calloc ( 1, sizeof( *new_node ) );
     assert( new_node && "Memory err" );
 
@@ -59,7 +59,11 @@ TreeStatus_t NodeDelete( Node_t* node ) {
         NodeDelete( node->right );
     }
 
-    // free( node->value );
+    if ( node->value ) { 
+        free( node->value ); 
+        node->value = 0; 
+    
+    }
     free( node );
 
     return SUCCESS;
@@ -87,8 +91,7 @@ void TreeDump( const Tree_t* tree ) {
     PRINT_EXECUTING;
     my_assert( tree, "Null pointer on `tree`" );
 
-    // int mkdir_result = mkdir( "dump", 0777 );
-    // assert( mkdir_result != -1 );
+    mkdir("dump", 0755);
     
     FILE* dot_stream = fopen( "dump/image.dot", "w");
     assert( dot_stream && "Fail open file" );
@@ -118,6 +121,9 @@ void NodeDump( const Node_t* node, FILE* dot_stream ) {
         "\t\t\t<TD PORT=\"idx\" BGCOLOR=\"#%X\">idx=0x%lX</TD> \n"
         "\t\t</TR> \n"
         "\t\t<TR> \n"
+        "\t\t\t<TD PORT=\"idx\" BGCOLOR=\"#%X\">parent=0x%lX</TD> \n"
+        "\t\t</TR> \n"
+        "\t\t<TR> \n"
         "\t\t\t<TD PORT=\"value\" BGCOLOR=\"lightgreen\">%s%s</TD> \n"
         "\t\t</TR> \n"
         "\t\t<TR> \n"
@@ -135,6 +141,7 @@ void NodeDump( const Node_t* node, FILE* dot_stream ) {
         "\t>]; \n", 
         ( uintptr_t ) node, fill_color,
         crc32_ptr( node ), ( uintptr_t ) node,
+        crc32_ptr( node->parent ), ( uintptr_t ) node->parent,
         node->value, ( node->left == 0 && node->right == 0 ) ? ( "" ) : ( "?" ),
         ( node->left == 0 )  ? ( fill_color ) : ( crc32_ptr( node->left ) ),
         ( node->left == 0 )  ? ( "0" ) : ( "Да" ),
