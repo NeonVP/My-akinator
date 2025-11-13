@@ -17,15 +17,16 @@ struct Node_t {
 struct Tree_t {
     Node_t* root;
 
-    #ifdef _DEBUG
-        struct VarInfo_t {
-                
-        } var_info;
+    char* buffer = 0;
+    char* buf_current_position = 0;
 
-        struct Logging_t {
-            
-        } logging;
-    #endif
+    // struct VarInfo_t {
+        
+    // } var_info;
+
+    // struct Logging_t {
+        
+    // } logging;
 };
 
 enum TreeStatus_t {
@@ -38,7 +39,7 @@ enum DirectionType {
     LEFT  = 1
 };
 
-Tree_t*      TreeCtor( const TreeData_t root_value );
+Tree_t*      TreeCtor();
 TreeStatus_t TreeDtor( Tree_t** tree );
 
 TreeStatus_t TreeCreateNode( Node_t* node, const DirectionType direction,  const TreeData_t new_value, Node_t** new_node_ptr );

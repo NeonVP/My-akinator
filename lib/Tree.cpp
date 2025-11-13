@@ -11,14 +11,12 @@
 
 const uint32_t fill_color = 0xb6b4b4;
 
-Tree_t* TreeCtor( const TreeData_t root_value ) {
+Tree_t* TreeCtor() {
     Tree_t* new_tree = ( Tree_t* ) calloc ( 1, sizeof( *new_tree ) );
     assert( new_tree && "Mempry allocation error" );
 
-    new_tree->root = ( Node_t* ) calloc ( 1, sizeof( * ( new_tree->root ) ) );
+    new_tree->root = ( Node_t* ) calloc ( 1, sizeof( *( new_tree->root ) ) );
     assert( new_tree->root && "Memory allocation error" );
-
-    new_tree->root->value = strdup( root_value );
 
     return new_tree;
 }
@@ -39,6 +37,7 @@ Node_t* NodeCreate( const TreeData_t field, Node_t* parent ) {
     assert( new_node && "Memory err" );
 
     new_node->value = strdup( field );
+    
 
     new_node->parent = parent;
 
@@ -61,7 +60,7 @@ TreeStatus_t NodeDelete( Node_t* node ) {
 
     if ( node->value ) { 
         free( node->value ); 
-        node->value = 0; 
+        node->value = 0; // this is ptr
     
     }
     free( node );
@@ -91,7 +90,8 @@ void TreeDump( const Tree_t* tree ) {
     PRINT_EXECUTING;
     my_assert( tree, "Null pointer on `tree`" );
 
-    mkdir("dump", 0755);
+    int result_mkdir = mkdir("dump", 0755); 
+    // assert( result_mkdir == 0 );
     
     FILE* dot_stream = fopen( "dump/image.dot", "w");
     assert( dot_stream && "Fail open file" );
@@ -104,16 +104,18 @@ void TreeDump( const Tree_t* tree ) {
 
     fclose( dot_stream );
 
-    system( "dot -Tpng dump/image.dot -o dump/image.png" );
+    system( "dot -Tsvg dump/image.dot -o dump/image.svg" );
 
     PRINT_STATUS_OK;
 }
 
 
 void NodeDump( const Node_t* node, FILE* dot_stream ) {
-    my_assert( node, "Null pointer on `node`" );
+    if ( node == NULL ) {
+        return;
+    }
 
-    fprintf( 
+    fprintf(    // TODO: separate to printf-s
         dot_stream, 
         "\tnode_%lX [shape=plaintext; style=filled; color=black; fillcolor=\"#%X\"; label=< \n"
         "\t<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\"> \n"

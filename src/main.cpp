@@ -1,8 +1,8 @@
 #include "Akinator.h"
-#include "Tree.h"
 
 int main() {
-    Tree_t* tree = TreeCtor( "Животное" );
+    Tree_t* tree = TreeCtor();
+    tree->root = NodeCreate( "Животное", NULL );
 
     tree->root->left = NodeCreate( "Полторашка", tree->root );
     tree->root->right = NodeCreate( "Ведёт матан", tree->root );
@@ -12,8 +12,6 @@ int main() {
     TreeDump( tree );
 
     Game( tree );
-
-    TreeSaveToFile( tree, "base.txt" );
 
     TreeDtor( &tree );
 }
