@@ -51,6 +51,8 @@ static void ClearBuffer();
 
 ON_DEBUG( static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_element, const char* format_string, ... ); )
 
+static void Speak( const char* text );
+
 Akinator_t* AkinatorCtor() {
     Akinator_t* akinator = ( Akinator_t* ) calloc ( 1, sizeof( *akinator ) );
     assert( akinator && "Memory allocation error" );
@@ -157,6 +159,9 @@ static void PlayRound( Tree_t* tree ) {
     }
 
     fprintf( stderr, COLOR_BRIGHT_GREEN "Я думаю, это %s\n" COLOR_RESET, current->value );
+    char tmp[ MAX_LEN ];
+    snprintf( tmp, sizeof(tmp), "Я думаю, это %s", current->value );
+    Speak( tmp );
 
     fprintf( stderr, "Я угадал? [Y/N]: " );
     Answer_t answer = YesOrNoAnswer();
@@ -281,13 +286,15 @@ static Node_t* AskQuestion( Node_t* current ) {
     return next;
 }
 
-static void PrintQuestion(const char* question) {
+static void PrintQuestion( const char* question ) {
     my_assert( question, "Null pointer on `question`" );
 
-    fprintf(stderr, COLOR_BRIGHT_YELLOW "[ВОПРОС]\n" COLOR_RESET);
-    fprintf(stderr, "%s?\n", question);
-    fprintf(stderr, "---------------------------------------------\n");
-    fprintf(stderr, "Ответ [Y/N]: ");
+    fprintf(stdout, COLOR_BRIGHT_YELLOW "[ВОПРОС]\n" COLOR_RESET);
+    fprintf(stdout, "%s?\n", question);
+    fprintf(stdout, "---------------------------------------------\n");
+    fprintf(stdout, "Ответ [Y/N]: ");
+
+    Speak( question );
 }
 
 
@@ -327,6 +334,7 @@ static void PrintObjectTraits( const Tree_t* tree ) {
 
         if ( parent->left == node) {
             fprintf( stderr, "✔ %s\n", parent->value );
+            
         } else if ( parent->right == node ) {
             fprintf( stderr, "✖ не %s\n", parent->value );
         }
@@ -423,6 +431,7 @@ static void PrintTwoObjectDifference(const Tree_t* tree) {
     fprintf(stderr, COLOR_BRIGHT_GREEN "Сравнение \"%s\" и \"%s\":\n" COLOR_RESET, obj1, obj2);
     fprintf(stderr, "────────────────────────────────────────────\n");
 
+    // Общие признаки
     fprintf(stderr, COLOR_BRIGHT_YELLOW "\nОбщие признаки:\n" COLOR_RESET);
     for (size_t i = 1; i < diverge; i++) {
         const Node_t* parent = path1[i - 1];
@@ -434,10 +443,13 @@ static void PrintTwoObjectDifference(const Tree_t* tree) {
             fprintf(stderr, "✖ не %s\n", parent->value);
     }
 
+    // Отличия
     fprintf(stderr, COLOR_BRIGHT_RED "\nОтличия:\n" COLOR_RESET);
 
+    size_t start_idx = (diverge == 0 ? 0 : diverge - 1);
+
     fprintf(stderr, "\n%s:\n", obj1);
-    for (size_t i = diverge; i < len1 - 1; i++) {
+    for (size_t i = start_idx; i < len1 - 1; i++) {
         const Node_t* parent = path1[i];
         const Node_t* node   = path1[i + 1];
 
@@ -448,7 +460,7 @@ static void PrintTwoObjectDifference(const Tree_t* tree) {
     }
 
     fprintf(stderr, "\n%s:\n", obj2);
-    for (size_t i = diverge; i < len2 - 1; i++) {
+    for (size_t i = start_idx; i < len2 - 1; i++) {
         const Node_t* parent = path2[i];
         const Node_t* node   = path2[i + 1];
 
@@ -460,6 +472,7 @@ static void PrintTwoObjectDifference(const Tree_t* tree) {
 
     fprintf(stderr, "────────────────────────────────────────────\n\n");
 }
+
 
 
 static void ClearBuffer() {
@@ -493,7 +506,7 @@ static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_elem
         PRINT_HTML("</pre>\n<hr>\n");
     }
 
-    PRINT_HTML("<h2>Графическое дерево (SVG)</h2>\n"
+    PRINT_HTML("<h2>Графическое дерево</h2>\n"
                "<div style=\"border:1px solid #999; padding:10px; background:white;\">\n");
 
     // NodeGraphicDump( current_element, "%s/image%lu.dot", akinator->tree->logging.img_log_path, akinator->tree->image_number );
@@ -507,3 +520,13 @@ static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_elem
     fflush( akinator->tree->logging.log_file );
 }
 #endif
+
+static void Speak( const char* text ) {
+    if ( !text || text[0] == '\0' ) return;
+
+    char cmd[1024] = {};
+    // -v ru -- голос русский, -s 150 -- скорость
+    snprintf( cmd, sizeof(cmd), "espeak -v ru -s 150 \"%s\" 2>/dev/null", text );
+
+    system(cmd);
+}
