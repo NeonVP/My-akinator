@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cstddef>
 #include <stdarg.h>
 #include <cstdio>
 #include <cstdlib>
@@ -75,7 +76,6 @@ Akinator_t* AkinatorCtor() {
     assert( !mkdir_result );
 
     TreeReadFromFile( akinator );
-    PRINT( "%d", *( akinator->current_position - 1 ) );
 
     return akinator;
 }
@@ -533,10 +533,12 @@ static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_elem
         PRINT_HTML("</pre>\n<hr>\n");
     }
 
-    PRINT_HTML("<h2>Графическое дерево (SVG)</h3>\n"
+    PRINT_HTML("<h2>Графическое дерево (SVG)</h2>\n"
                "<div style=\"border:1px solid #999; padding:10px; background:white;\">\n");
 
-    NodeGraphicDump( current_element, "%s/image%lu.dot", akinator->tree->logging.img_log_path, akinator->tree->image_number );
+    // NodeGraphicDump( current_element, "%s/image%lu.dot", akinator->tree->logging.img_log_path, akinator->tree->image_number );
+
+    TreeDump( akinator->tree, "" );
 
     PRINT_HTML("</div>\n<hr>\n");
 

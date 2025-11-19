@@ -123,11 +123,14 @@ void TreeDump( Tree_t* tree, const char* format_string, ... ) {
     va_end( args );
     PRINT_HTML( "</H3>\n" );
 
-    NodeGraphicDump( tree->root, "%s/%s", tree->logging.img_log_path, tree->image_number );
+    NodeGraphicDump(
+        tree->root, "%s/image%lu.dot", 
+        tree->logging.img_log_path, tree->image_number 
+    );
 
     PRINT_HTML( 
-        "<img src=\"%s/image%lu.png\" height=\"200px\">\n", 
-        tree->logging.img_log_path, tree->image_number++
+        "<img src=\"images/image%lu.dot.svg\" height=\"200px\">\n", 
+        tree->image_number++
     );
 
     #undef PRINT_HTML
@@ -223,28 +226,29 @@ static void NodeDumpRecursively( const Node_t* node, FILE* dot_stream ) {
 }
 
 void NodeGraphicDump( const Node_t* node, const char* image_path_name, ... ) {
-    if ( !node ) {
+    if ( !node || !image_path_name )
         return;
-    }
 
-    va_list args = {};
-    va_start( args, image_path_name );
+    char dot_path[ MAX_LEN_PATH ] = {};
+    char svg_path[ MAX_LEN_PATH ] = {};
 
-    char buffer[ MAX_LEN_PATH ] = {};
-    vsnprintf( buffer, MAX_LEN_PATH, image_path_name, args );
-
+    va_list args;
+    va_start(  args, image_path_name );
+    vsnprintf( dot_path, MAX_LEN_PATH, image_path_name, args );
     va_end( args );
 
-    FILE* dot_stream = fopen( buffer, "w");
-    assert( dot_stream && "File opening error" );
+    snprintf( svg_path, MAX_LEN_PATH, "%s.svg", dot_path );
+
+    FILE* dot_stream = fopen( dot_path, "w" );
+    assert(dot_stream && "File opening error");
 
     fprintf( dot_stream, "digraph {\n\tsplines=line;\n" );
-
     NodeDumpRecursively( node, dot_stream );
-
     fprintf( dot_stream, "}\n" );
 
     fclose( dot_stream );
 
-    system( "dot -Tsvg dump/image.dot -o dump/image.svg" );
+    char cmd[ MAX_LEN_PATH * 2 ] = {};
+    snprintf( cmd, sizeof(cmd), "dot -Tsvg %s -o %s", dot_path, svg_path );
+    system( cmd );
 }
