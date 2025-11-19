@@ -1,36 +1,23 @@
-#include <cstdarg>
-#include <cstdio>
+#include <cstdlib>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
-#include <errno.h>
+#include <ctype.h>
 
 #include <sys/stat.h>
 
 #include "Tree.h"
 #include "DebugUtils.h"
+#include "UtilsRW.h"
 
 const uint32_t fill_color = 0xb6b4b4;
-
-
-static int MakeDirectory( const char* path ) {
-    if ( mkdir( path, 0755 ) == -1 ) {
-        if ( errno == EEXIST ) {
-            return 0;
-        } else {
-            return -1;
-        }
-    }
-    return 0;
-}
 
 Tree_t* TreeCtor() {
     Tree_t* new_tree = ( Tree_t* ) calloc ( 1, sizeof( *new_tree ) );
     assert( new_tree && "Mempry allocation error" );
-
-    new_tree->root = ( Node_t* ) calloc ( 1, sizeof( *( new_tree->root ) ) );
-    assert( new_tree->root && "Memory allocation error" );
 
     #ifdef _DEBUG
         new_tree->image_number = 0;
@@ -54,10 +41,14 @@ Tree_t* TreeCtor() {
     return new_tree;
 }
 
-TreeStatus_t TreeDtor( Tree_t **tree, void  ( *clean_function ) ( void* value ) ) {
+TreeStatus_t TreeDtor( Tree_t **tree, void  ( *clean_function ) ( char* value, Tree_t* tree ) ) {
     my_assert( tree, "Null pointer on `tree`" );
 
-    NodeDelete( ( *tree )->root, clean_function );
+    NodeDelete( ( *tree )->root, *tree, clean_function );
+
+    free( ( *tree )->buffer );
+    free( ( *tree )->logging.img_log_path );
+    free( ( *tree )->logging.log_path );
 
     free( *tree );
     *tree = NULL;
@@ -75,25 +66,25 @@ Node_t* NodeCreate( const TreeData_t field, Node_t* parent ) {
     return new_node;
 }
 
-TreeStatus_t NodeDelete( Node_t* node, void ( *clean_function ) ( void* value ) ) {
+TreeStatus_t NodeDelete( Node_t* node, Tree_t* tree, void ( *clean_function ) ( char* value, Tree_t* tree ) ) {
     my_assert( node, "Null pointer on `node`" );
 
     if ( node->left != NULL ) {
-        NodeDelete( node->left, clean_function );
+        NodeDelete( node->left, tree, clean_function );
     }    
 
     if ( node->right != NULL ) {
-        NodeDelete( node->right, clean_function );
+        NodeDelete( node->right, tree, clean_function );
     }
 
-    clean_function( node->value );
+    clean_function( node->value, tree );
 
     free( node );
 
     return SUCCESS;
 }
 
-static uint32_t crc32_ptr( const void *ptr ) {
+static uint32_t my_crc32_ptr( const void *ptr ) {
     uintptr_t val = ( uintptr_t ) ptr;
     uint32_t  crc = 0xFFFFFFFF;
 
@@ -148,16 +139,16 @@ static void NodeDumpRecursively( const Node_t* node, FILE* dot_stream ) {
         DOT_PRINT( "\tnode_%lX [shape=plaintext; style=filled; color=black; fillcolor=\"#%X\"; label=< \n",
                 ( uintptr_t ) node, fill_color );
 
-        DOT_PRINT( "\t<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\"> \n" );
+        DOT_PRINT( "\t<TABLE BORDER=\"1\" CELLBORDER=\"1\" CELLSPACING=\"0\" ALIGN=\"CENTER\"> \n" );
 
         DOT_PRINT( "\t\t<TR> \n");
         DOT_PRINT( "\t\t\t<TD PORT=\"idx\" BGCOLOR=\"#%X\">idx=0x%lX</TD> \n",
-                crc32_ptr( node ), ( uintptr_t ) node );
+                my_crc32_ptr( node ), ( uintptr_t ) node );
         DOT_PRINT( "\t\t</TR> \n" );
 
         DOT_PRINT( "\t\t<TR> \n" );
         DOT_PRINT( "\t\t\t<TD PORT=\"idx\" BGCOLOR=\"#%X\">parent=0x%lX</TD> \n",
-                crc32_ptr( node->parent ), ( uintptr_t ) node->parent );
+                my_crc32_ptr( node->parent ), ( uintptr_t ) node->parent );
         DOT_PRINT( "\t\t</TR> \n" );
 
         DOT_PRINT( "\t\t<TR> \n" );
@@ -172,16 +163,17 @@ static void NodeDumpRecursively( const Node_t* node, FILE* dot_stream ) {
         DOT_PRINT( "\t\t\t\t\t<TR> \n" );
 
         DOT_PRINT( "\t\t\t\t\t\t<TD PORT=\"left\" BGCOLOR=\"#%X\">%s - %lX</TD> \n",
-                ( node->left == 0 ? fill_color : crc32_ptr( node->left ) ),
+                ( node->left == 0 ? fill_color : my_crc32_ptr( node->left ) ),
                 ( node->left == 0 ? "0" : "Да" ),
-                ( uintptr_t )node->right );
+                ( uintptr_t )node->left );
 
         DOT_PRINT( "\t\t\t\t\t\t<TD><FONT POINT-SIZE=\"10\">│</FONT></TD> \n" );
 
         DOT_PRINT( "\t\t\t\t\t\t<TD PORT=\"right\" BGCOLOR=\"#%X\">%s - %lX</TD> \n",
-                ( node->right == 0 ? fill_color : crc32_ptr( node->right ) ),
+                ( node->right == 0 ? fill_color : my_crc32_ptr( node->right ) ),
                 ( node->right == 0 ? "0" : "Нет" ),
-                ( uintptr_t )node->left );
+                ( uintptr_t )node->right );
+
 
         DOT_PRINT( "\t\t\t\t\t</TR> \n" );
         DOT_PRINT( "\t\t\t\t</TABLE> \n" );
@@ -211,13 +203,13 @@ static void NodeDumpRecursively( const Node_t* node, FILE* dot_stream ) {
     #endif
 
     if ( node->left != NULL ) {
-        DOT_PRINT( "\tnode_%lX:left->node_%lX\n",
+        DOT_PRINT( "\tnode_%lX:left:s->node_%lX\n",
                   ( uintptr_t ) node, ( uintptr_t ) node->left );
         NodeDumpRecursively( node->left, dot_stream );
     }
 
     if ( node->right != NULL ) {
-        DOT_PRINT( "\tnode_%lX:right->node_%lX\n",
+        DOT_PRINT( "\tnode_%lX:right:s->node_%lX\n",
                   ( uintptr_t )node, ( uintptr_t ) node->right );
         NodeDumpRecursively( node->right, dot_stream );
     }
@@ -252,3 +244,117 @@ void NodeGraphicDump( const Node_t* node, const char* image_path_name, ... ) {
     snprintf( cmd, sizeof(cmd), "dot -Tsvg %s -o %s", dot_path, svg_path );
     system( cmd );
 }
+
+static void WriteNode( const Node_t* node, FILE* stream ) {
+    if ( !node ) {
+        fprintf( stream, " nil" );
+        return;
+    }
+
+    fprintf( stream, "( \"%s\" ", node->value ? node->value : "" );
+
+    WriteNode( node->left,  stream );
+    WriteNode( node->right, stream );
+
+    fprintf( stream, " )" );
+}
+
+void TreeSaveToFile( const Tree_t* tree, const char* filename ) {
+    my_assert( tree,     "Null pointer on tree" );
+    my_assert( filename, "Null pointer on filename" );
+
+    FILE* file_with_base = fopen( filename, "w" );
+    my_assert( file_with_base, "Failed to open file for writing" );
+
+    WriteNode( tree->root, file_with_base );
+
+    int result = fclose( file_with_base );
+    assert( !result && "Error while closing file with base" );
+
+    fprintf( stdout, "База Акинатора была сохранена в base.txt\n" );
+}
+
+static void CleanSpace( char** position ) {
+    while ( isspace( **position ) ) 
+        ( *position )++;
+}
+
+static Node_t* NodeRead( Tree_t* tree ){
+    CleanSpace( &(tree->current_position ) );
+
+    if ( *( tree->current_position ) == '(' ) {
+        tree->current_position++;
+
+        CleanSpace( &( tree->current_position ) );
+
+        char* value_ptr = NULL;
+
+        // TODO: scanf...
+        if ( *( tree->current_position ) == '\"')
+        {
+            tree->current_position++;
+            value_ptr = tree->current_position;
+
+            while (*( tree->current_position ) && *( tree->current_position ) != '\"') {
+                tree->current_position++;
+            }
+
+            *( tree->current_position ) = '\0';
+            tree->current_position++;
+        }
+
+        Node_t* node = NodeCreate(value_ptr ? value_ptr : ( char* ) "", NULL);
+
+        node->left = NodeRead( tree );
+        if (node->left) node->left->parent = node;
+
+        node->right = NodeRead( tree );
+        if (node->right) node->right->parent = node;
+
+        CleanSpace( &( tree->current_position ) );
+
+        if ( *( tree->current_position ) == ')' ) tree->current_position++;
+
+        return node;
+    }
+
+    if ( strncmp( tree->current_position, "nil", 3 ) == 0 ) {
+        tree->current_position += 3;
+        return NULL;
+    }
+
+    return NULL;
+}
+
+void TreeReadFromFile( Tree_t* tree ) {
+    my_assert( tree, "Null pointer on `tree`" );
+
+    tree->buffer_size = DetermineTheFileSize( "base.txt" );
+
+    FILE* file = fopen( "base.txt",  "r" );
+    assert( file && "File opening error" );
+
+    tree->buffer = ( char* ) calloc ( ( size_t ) ( tree->buffer_size + 1 ), sizeof( *( tree->buffer ) ) );
+    assert( tree->buffer && "Memory allocation error" );
+
+    size_t result_of_read = fread( tree->buffer, sizeof( char ), ( size_t ) tree->buffer_size, file );
+    assert( result_of_read != 0 );
+
+    tree->buffer[ result_of_read ] = '\0';
+
+    int result_of_fclose = fclose( file );
+    assert( !result_of_fclose );
+
+    bool error = false;
+    tree->current_position = tree->buffer;
+    tree->root = NodeRead( tree );
+
+    if ( error ) {
+        fprintf( stderr, "Pizdez, не распарсилось\n" );
+    }
+    else {
+        fprintf( stderr, "Все норм, распарсилось\n" );
+    }
+
+}
+

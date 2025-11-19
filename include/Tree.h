@@ -24,6 +24,10 @@ struct Node_t {
 struct Tree_t {
     Node_t* root;
 
+    char* buffer;
+    char* current_position;
+    off_t buffer_size;
+
     #ifdef _DEBUG
         struct Log_t {
             FILE* log_file;
@@ -46,11 +50,13 @@ enum DirectionType {
 };
 
 Tree_t*      TreeCtor();
-TreeStatus_t TreeDtor( Tree_t** tree, void ( *clean_function ) ( void* value ) );
+TreeStatus_t TreeDtor( Tree_t** tree, void ( *clean_function ) ( char* value, Tree_t* tree ) );
 
+void TreeSaveToFile( const Tree_t* tree, const char* filename );
+void TreeReadFromFile( Tree_t* tree );
 
 Node_t* NodeCreate( const TreeData_t field, Node_t* parent );
-TreeStatus_t NodeDelete( Node_t* node, void ( *clean_function ) ( void* value ) );
+TreeStatus_t NodeDelete( Node_t* node, Tree_t* tree, void ( *clean_function ) ( char* value, Tree_t* tree ) );
 
 void TreeDump( Tree_t* tree, const char* format_string, ... );
 void NodeGraphicDump( const Node_t* node, const char* image_path_name, ... );

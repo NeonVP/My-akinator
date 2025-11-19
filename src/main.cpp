@@ -3,7 +3,7 @@
 int main() {
     Akinator_t* akinator = AkinatorCtor();
 
-    Game( akinator );
+    AkinatorGame( akinator );
 
     AkinatorDtor( &akinator );
 }
