@@ -1,7 +1,14 @@
+#include <stdio.h>
+
 #ifndef TREE_H
 #define TREE_H
 
-#include <stdio.h>
+#ifdef _LINUX
+#include <linux/limits.h>
+const size_t MAX_LEN_PATH = PATH_MAX;
+#else
+const size_t MAX_LEN_PATH = 128;
+#endif
 
 typedef char* TreeData_t;
 
@@ -17,16 +24,15 @@ struct Node_t {
 struct Tree_t {
     Node_t* root;
 
-    char* buffer = 0;
-    char* buf_current_position = 0;
+    #ifdef _DEBUG
+        struct Log_t {
+            FILE* log_file;
+            char* log_path;
+            char* img_log_path;
+        } logging;
 
-    // struct VarInfo_t {
-        
-    // } var_info;
-
-    // struct Logging_t {
-        
-    // } logging;
+        size_t image_number;
+    #endif
 };
 
 enum TreeStatus_t {
@@ -40,14 +46,13 @@ enum DirectionType {
 };
 
 Tree_t*      TreeCtor();
-TreeStatus_t TreeDtor( Tree_t** tree );
+TreeStatus_t TreeDtor( Tree_t** tree, void ( *clean_function ) ( void* value ) );
 
-TreeStatus_t TreeCreateNode( Node_t* node, const DirectionType direction,  const TreeData_t new_value, Node_t** new_node_ptr );
 
 Node_t* NodeCreate( const TreeData_t field, Node_t* parent );
-TreeStatus_t NodeDelete( Node_t* node );
+TreeStatus_t NodeDelete( Node_t* node, void ( *clean_function ) ( void* value ) );
 
-void TreeDump( const Tree_t* tree );
-void NodeDump( const Node_t* node, FILE* dot_stream );
+void TreeDump( Tree_t* tree, const char* format_string, ... );
+void NodeGraphicDump( const Node_t* node, const char* image_path_name, ... );
 
 #endif//TREE_H
