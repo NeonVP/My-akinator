@@ -1,11 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
-#include <cstddef>
 #include <stdarg.h>
-#include <cstdio>
-#include <cstdlib>
 #include <ctype.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "Akinator.h"
 #include "Colors.h"
@@ -13,14 +11,14 @@
 #include "Tree.h"
 #include "UtilsRW.h"
 
-// maybe добавить режимы игры: дать определение, сравнить два слова, выход с сохранеием и без, выдать базу
 
 enum GameMode {
     PlayGame            = 1,
     GiveDefinition      = 2,
     Compare2Definitions = 3,
     QuitSave            = 4,
-    QuitNotSave         = 5
+    QuitNotSave         = 5,
+    ShowTree            = 0
 };
 
 enum Answer_t {
@@ -36,20 +34,21 @@ static void     PlayRound( Tree_t* tree );
 static Node_t*  AskQuestion( Node_t* current );
 static void     PrintQuestion( const char* question );
 static void     HandleIncorrectGuess( Tree_t* tree, Node_t* leaf ); 
+static Node_t*  AddQuestion( Tree_t* tree, Node_t* leaf, const char* new_question, char* new_object, Answer_t answer_for_new_object );
 static Answer_t YesOrNoAnswer();
 
 static void    PrintObjectTraits( const Tree_t* tree );
+static Node_t* SearchObject(const Tree_t* tree, const char* name_of_object );
 
 static void PrintTwoObjectDifference(const Tree_t* tree);
 static size_t BuildPath(const Node_t* root, const Node_t* target, const Node_t* path[], size_t depth);
 
-static Node_t* SearchObject(const Tree_t* tree, const char name_of_object[ MAX_LEN ] );
-
-static Node_t* AddQuestion( Tree_t* tree, Node_t* leaf, const char* new_question, char* new_object, Answer_t answer_for_new_object );
+static void ShowGraphicTree( Tree_t* tree );
 
 static void ClearBuffer();
 
-ON_DEBUG( static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_element, const char* format_string, ... ); )
+ON_DEBUG( static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_element, 
+                                                                const char* format_string, ... ); )
 
 static void Speak( const char* text );
 
@@ -77,7 +76,7 @@ static void TreeCleanFunction( char* stream, Tree_t* tree ) {
 }
 
 void AkinatorDtor( Akinator_t** akinator ) {
-    my_assert( akinator, "Null pointeron `akinator`" );
+    my_assert( akinator, "Null pointer on `akinator`" );
 
     TreeDtor( &( ( *akinator )->tree), TreeCleanFunction );
 
@@ -123,6 +122,9 @@ void AkinatorGame( Akinator_t* akinator ) {
             case QuitNotSave:
                 fprintf( stdout, "Выход." );
                 return;
+            case ShowTree:
+                ShowGraphicTree( akinator->tree );
+                break;
             default:
                 fprintf( stdout, COLOR_BRIGHT_RED "Неверный выбор!\n" COLOR_RESET );
                 break;
@@ -158,12 +160,14 @@ static void PlayRound( Tree_t* tree ) {
         return;
     }
 
-    fprintf( stderr, COLOR_BRIGHT_GREEN "Я думаю, это %s\n" COLOR_RESET, current->value );
-    char tmp[ MAX_LEN ];
-    snprintf( tmp, sizeof(tmp), "Я думаю, это %s", current->value );
-    Speak( tmp );
+    char buffer[ MAX_LEN ] = {};
+    snprintf( buffer, MAX_LEN, "Я думаю, это %s", current->value );
+    fprintf( stdout, COLOR_BRIGHT_GREEN "%s\n" COLOR_RESET, buffer );
+    Speak( buffer );
 
-    fprintf( stderr, "Я угадал? [Y/N]: " );
+    snprintf( buffer, MAX_LEN, "Я угадал?" );
+    fprintf( stdout, "%s [Y/N]: ", buffer );
+    Speak( buffer );
     Answer_t answer = YesOrNoAnswer();
 
     if ( answer == YES ) {
@@ -178,7 +182,11 @@ static void HandleIncorrectGuess( Tree_t* tree, Node_t* leaf ) {
     my_assert( tree, "Null pointer on `tree`" );
     my_assert( leaf, "Null pointer on `leaf`" );
 
-    fprintf( stderr, "Хотите добавить новый объект? [Y/N] " );
+    char buffer[ MAX_LEN * 3 ] = {};
+
+    snprintf( buffer, MAX_LEN, "Хотите добавить новый объект?" );
+    fprintf( stdout, "%s [Y/N] ", buffer );
+    Speak( buffer );
     Answer_t answer = YesOrNoAnswer();
     if ( answer == NO ) {
         return;
@@ -188,14 +196,19 @@ static void HandleIncorrectGuess( Tree_t* tree, Node_t* leaf ) {
     char new_question[ MAX_LEN ] = {};
 
     fprintf( stdout, "Кто это был? " );
+    Speak( "Кто это был?" );
     scanf( " %127[^\n]", new_object );
     ClearBuffer();
 
-    fprintf( stdout, "Чем \"%s\" отличается от \"%s\": он ", leaf->value, new_object );
+    snprintf( buffer, MAX_LEN * 3, "Чем \"%s\" отличается от \"%s\"", leaf->value, new_object );
+    fprintf( stdout, "%s: он ", buffer );
+    Speak( buffer );
     scanf( " %127[^\n]", new_question );
     ClearBuffer();
 
-    fprintf( stdout, "Для \"%s\" ответ на вопрос будет 'Да' или 'Нет'? [Y/N]: ", new_object );
+    snprintf( buffer, MAX_LEN * 3, "Для \"%s\" ответ на вопрос будет 'Да' или 'Нет'?", new_object );
+    fprintf( stdout, "%s [Y/N]: ", buffer );
+    Speak( buffer );
     Answer_t ans_for_new_obj = YesOrNoAnswer();
 
     AddQuestion( tree, leaf, new_question, new_object, ans_for_new_obj );
@@ -211,10 +224,10 @@ static Answer_t YesOrNoAnswer() {
         
         if ( result != 1 ) continue;
 
-        if ( strncmp( answer, "Y", 1 ) == 0 ) {
+        if ( strncmp( answer, "Y", 1 ) == 0 || strncmp( answer, "y", 1 ) == 0  ) {
             return YES;
         }
-        else if ( strncmp( answer, "N", 1 ) == 0 ) {
+        else if ( strncmp( answer, "N", 1 ) == 0 || strncmp( answer, "n", 1 ) == 0 ) {
             return NO;
         }
         else {
@@ -325,18 +338,18 @@ static void PrintObjectTraits( const Tree_t* tree ) {
         current = current->parent;
     }
 
-    fprintf( stderr, "\n\nОбъект \"%s\" имеет следующие признаки:\n", name_of_object );
-    fprintf( stderr, "──────────────────────────────────────\n" );
+    fprintf( stdout, "\n\nОбъект \"%s\" имеет следующие признаки:\n", name_of_object );
+    fprintf( stdout, "──────────────────────────────────────\n" );
 
     for ( size_t idx = depth - 1; idx > 0; idx-- ) {
         const Node_t* parent = path[ idx ];
         const Node_t* node   = path[ idx - 1 ];
 
         if ( parent->left == node) {
-            fprintf( stderr, "✔ %s\n", parent->value );
+            fprintf( stdout, "✔ %s\n", parent->value );
             
         } else if ( parent->right == node ) {
-            fprintf( stderr, "✖ не %s\n", parent->value );
+            fprintf( stdout, "✖ не %s\n", parent->value );
         }
     }
 
@@ -346,12 +359,8 @@ static void PrintObjectTraits( const Tree_t* tree ) {
 static Node_t* SearchObjectRecursively( Node_t* node, const char* name_of_object, size_t length ) {
     if ( node == NULL ) return NULL;
 
-    char node_name[ MAX_LEN ] = {};
-    for ( size_t idx = 0; node->value[ idx ] != '\0'; idx++ )
-        node_name[ idx ] = ( char ) tolower( node->value[ idx ] );
-
     if ( node->left == NULL && node->right == NULL && 
-            strncmp( node_name, name_of_object, length ) == 0 )
+            strncasecmp( node->value, name_of_object, length ) == 0 )
         return node;
 
     Node_t* found = SearchObjectRecursively( node->left, name_of_object, length );
@@ -395,90 +404,88 @@ static size_t BuildPath(const Node_t* root, const Node_t* target, const Node_t* 
     return 0;
 }
 
-static void PrintTwoObjectDifference(const Tree_t* tree) {
+static void PrintTwoObjectDifference( const Tree_t* tree ) {
     my_assert(tree, "Null pointer on tree");
 
-    char obj1[MAX_LEN] = {};
-    char obj2[MAX_LEN] = {};
+    char obj1[ MAX_LEN ] = {};
+    char obj2[ MAX_LEN ] = {};
 
-    fprintf(stderr, "Введите имя первого объекта: ");
-    scanf(" %127[^\n]", obj1);
+    fprintf( stdout, "Введите имя первого объекта: " );
+    scanf( " %127[^\n]", obj1 );
     ClearBuffer();
 
-    fprintf(stderr, "Введите имя второго объекта: ");
-    scanf(" %127[^\n]", obj2);
+    fprintf( stdout, "Введите имя второго объекта: " );
+    scanf( " %127[^\n]", obj2 );
     ClearBuffer();
 
-    const Node_t* n1 = SearchObject(tree, obj1);
-    const Node_t* n2 = SearchObject(tree, obj2);
+    const Node_t* n1 = SearchObject( tree, obj1 );
+    const Node_t* n2 = SearchObject( tree, obj2 );
 
-    if (!n1 || !n2) {
-        fprintf(stderr, COLOR_BRIGHT_RED "Одного из объектов нет в базе.\n" COLOR_RESET);
+    if ( !n1 || !n2 ) {
+        fprintf( stderr, COLOR_BRIGHT_RED "Одного из объектов нет в базе.\n" COLOR_RESET );
         return;
     }
 
     const Node_t* path1[MAX_LEN] = {};
     const Node_t* path2[MAX_LEN] = {};
 
-    size_t len1 = BuildPath(tree->root, n1, path1, 0);
-    size_t len2 = BuildPath(tree->root, n2, path2, 0);
+    size_t len1 = BuildPath( tree->root, n1, path1, 0 );
+    size_t len2 = BuildPath( tree->root, n2, path2, 0 );
 
     size_t diverge = 0;
-    while (diverge < len1 && diverge < len2 && path1[diverge] == path2[diverge])
-        diverge++;
+    while ( diverge < len1 && diverge < len2 && path1[ diverge ] == path2[ diverge ] ) diverge++;
 
-    fprintf(stderr, "\n────────────────────────────────────────────\n");
-    fprintf(stderr, COLOR_BRIGHT_GREEN "Сравнение \"%s\" и \"%s\":\n" COLOR_RESET, obj1, obj2);
-    fprintf(stderr, "────────────────────────────────────────────\n");
+    fprintf( stdout, "\n────────────────────────────────────────────\n" );
+    fprintf( stdout, COLOR_BRIGHT_GREEN "Сравнение \"%s\" и \"%s\":\n" COLOR_RESET, obj1, obj2 );
+    fprintf( stdout, "────────────────────────────────────────────\n" );
 
     // Общие признаки
-    fprintf(stderr, COLOR_BRIGHT_YELLOW "\nОбщие признаки:\n" COLOR_RESET);
-    for (size_t i = 1; i < diverge; i++) {
-        const Node_t* parent = path1[i - 1];
-        const Node_t* node   = path1[i];
+    fprintf( stdout, COLOR_BRIGHT_YELLOW "\nОбщие признаки:\n" COLOR_RESET );
+    for ( size_t idx = 1; idx < diverge; idx++ ) {
+        const Node_t* parent = path1[ idx - 1 ];
+        const Node_t* node   = path1[ idx ];
 
-        if (parent->left == node)
-            fprintf(stderr, "✔ %s\n", parent->value);
+        if ( parent->left == node )
+            fprintf( stdout, "✔ %s\n", parent->value );
         else
-            fprintf(stderr, "✖ не %s\n", parent->value);
+            fprintf( stdout, "✖ не %s\n", parent->value );
     }
 
     // Отличия
-    fprintf(stderr, COLOR_BRIGHT_RED "\nОтличия:\n" COLOR_RESET);
+    fprintf( stdout, COLOR_BRIGHT_RED "\nОтличия:\n" COLOR_RESET );
 
-    size_t start_idx = (diverge == 0 ? 0 : diverge - 1);
+    size_t start_idx = ( diverge == 0 ? 0 : diverge - 1 );
 
-    fprintf(stderr, "\n%s:\n", obj1);
-    for (size_t i = start_idx; i < len1 - 1; i++) {
-        const Node_t* parent = path1[i];
-        const Node_t* node   = path1[i + 1];
+    fprintf( stderr, "\n%s:\n", obj1 );
+    for ( size_t idx = start_idx; idx < len1 - 1; idx++ ) {
+        const Node_t* parent = path1[ idx ];
+        const Node_t* node   = path1[ idx + 1 ];
 
-        if (parent->left == node)
-            fprintf(stderr, "✔ %s\n", parent->value);
+        if ( parent->left == node )
+            fprintf( stdout, "✔ %s\n", parent->value );
         else
-            fprintf(stderr, "✖ не %s\n", parent->value);
+            fprintf( stdout, "✖ не %s\n", parent->value );
     }
 
-    fprintf(stderr, "\n%s:\n", obj2);
-    for (size_t i = start_idx; i < len2 - 1; i++) {
-        const Node_t* parent = path2[i];
-        const Node_t* node   = path2[i + 1];
+    fprintf( stdout, "\n%s:\n", obj2 );
+    for ( size_t idx = start_idx; idx < len2 - 1; idx++ ) {
+        const Node_t* parent = path2[ idx ];
+        const Node_t* node   = path2[ idx + 1 ];
 
-        if (parent->left == node)
-            fprintf(stderr, "✔ %s\n", parent->value);
+        if ( parent->left == node )
+            fprintf( stdout, "✔ %s\n", parent->value );
         else
-            fprintf(stderr, "✖ не %s\n", parent->value);
+            fprintf( stdout, "✖ не %s\n", parent->value );
     }
 
-    fprintf(stderr, "────────────────────────────────────────────\n\n");
+    fprintf( stdout, "────────────────────────────────────────────\n\n" );
 }
-
-
 
 static void ClearBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
+
 
 #ifdef _DEBUG
 static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_element, const char* format_string, ... ) {
@@ -509,8 +516,6 @@ static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_elem
     PRINT_HTML("<h2>Графическое дерево</h2>\n"
                "<div style=\"border:1px solid #999; padding:10px; background:white;\">\n");
 
-    // NodeGraphicDump( current_element, "%s/image%lu.dot", akinator->tree->logging.img_log_path, akinator->tree->image_number );
-
     TreeDump( akinator->tree, "" );
 
     PRINT_HTML("</div>\n<hr>\n");
@@ -524,9 +529,38 @@ static void AkinatorDump( const Akinator_t* akinator, const Node_t* current_elem
 static void Speak( const char* text ) {
     if ( !text || text[0] == '\0' ) return;
 
-    char cmd[1024] = {};
-    // -v ru -- голос русский, -s 150 -- скорость
-    snprintf( cmd, sizeof(cmd), "espeak -v ru -s 150 \"%s\" 2>/dev/null", text );
+    char cmd[ MAX_LEN ] = {};
+    snprintf( cmd, sizeof(cmd), "espeak -v ru -s 100 \"%s\" 2>/dev/null", text );
 
-    system(cmd);
+    system( cmd );
+}
+
+static void OpenImage(const char* path) {
+    if ( !path ) return;
+
+    char cmd[ MAX_LEN ] = {};
+    snprintf( cmd, sizeof(cmd), "xdg-open \"%s\" >/dev/null 2>&1 &", path );
+    system( cmd );
+}
+
+static void ShowGraphicTree( Tree_t* tree ) {
+    my_assert( tree, "Null pointer on `tree`" );
+
+    fprintf( stdout, "Генерация графического дерева...\n" );
+
+    TreeDump( tree, "" );
+
+    char svg_path[256] = {};
+    snprintf(
+        svg_path,
+        sizeof(svg_path),
+        "%s/image%lu.dot.svg",
+        tree->logging.img_log_path,
+        tree->image_number - 1
+    );
+
+    fprintf( stdout, "Готово! SVG сохранён: %s\n", svg_path );
+    fprintf( stdout, "Открываю изображение...\n" );
+
+    OpenImage(svg_path);
 }

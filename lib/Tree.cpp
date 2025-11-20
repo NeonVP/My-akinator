@@ -271,7 +271,7 @@ void TreeSaveToFile( const Tree_t* tree, const char* filename ) {
     int result = fclose( file_with_base );
     assert( !result && "Error while closing file with base" );
 
-    fprintf( stdout, "База Акинатора была сохранена в base.txt\n" );
+    fprintf( stdout, "База Акинатора была сохранена в base.txt \n" );
 }
 
 static void CleanSpace( char** position ) {
