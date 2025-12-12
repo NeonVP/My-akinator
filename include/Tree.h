@@ -7,7 +7,7 @@
 #include <linux/limits.h>
 const size_t MAX_LEN_PATH = PATH_MAX;
 #else
-const size_t MAX_LEN_PATH = 128;
+const size_t MAX_LEN_PATH = 256;
 #endif
 
 typedef char* TreeData_t;

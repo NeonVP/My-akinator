@@ -71,7 +71,7 @@ TreeStatus_t NodeDelete( Node_t* node, Tree_t* tree, void ( *clean_function ) ( 
 
     if ( node->left != NULL ) {
         NodeDelete( node->left, tree, clean_function );
-    }    
+    }
 
     if ( node->right != NULL ) {
         NodeDelete( node->right, tree, clean_function );
@@ -115,12 +115,12 @@ void TreeDump( Tree_t* tree, const char* format_string, ... ) {
     PRINT_HTML( "</H3>\n" );
 
     NodeGraphicDump(
-        tree->root, "%s/image%lu.dot", 
-        tree->logging.img_log_path, tree->image_number 
+        tree->root, "%s/image%lu.dot",
+        tree->logging.img_log_path, tree->image_number
     );
 
-    PRINT_HTML( 
-        "<img src=\"images/image%lu.dot.svg\" height=\"200px\">\n", 
+    PRINT_HTML(
+        "<img src=\"images/image%lu.dot.svg\" height=\"200px\">\n",
         tree->image_number++
     );
 
@@ -275,11 +275,11 @@ void TreeSaveToFile( const Tree_t* tree, const char* filename ) {
 }
 
 static void CleanSpace( char** position ) {
-    while ( isspace( **position ) ) 
+    while ( isspace( **position ) )
         ( *position )++;
 }
 
-static Node_t* NodeRead( Tree_t* tree ){
+static Node_t* NodeRead( Tree_t* tree, bool* error ){
     CleanSpace( &(tree->current_position ) );
 
     if ( *( tree->current_position ) == '(' ) {
@@ -289,7 +289,7 @@ static Node_t* NodeRead( Tree_t* tree ){
 
         char* value_ptr = NULL;
 
-        // TODO: scanf...
+        // // TODO: scanf...
         if ( *( tree->current_position ) == '\"')
         {
             tree->current_position++;
@@ -302,13 +302,25 @@ static Node_t* NodeRead( Tree_t* tree ){
             *( tree->current_position ) = '\0';
             tree->current_position++;
         }
+        Node_t* node = NodeCreate( value_ptr ? value_ptr : ( char* ) "", NULL );
 
-        Node_t* node = NodeCreate(value_ptr ? value_ptr : ( char* ) "", NULL);
+        // int read_bytes1 = 0;
+        // int read_bytes2 = 0;
+        // int scanf_result = sscanf( tree->current_position, "\"%n%*[^\"]\"%n", &read_bytes1, &read_bytes2 );
+        // if ( scanf_result != 2 ) {
+        //     *error = true;
+        //     return NULL;
+        // }
 
-        node->left = NodeRead( tree );
+        // Node_t* node = NodeCreate( tree->current_position + read_bytes1, NULL );
+        // tree->current_position += read_bytes2;
+        // *( tree->current_position ++ ) = '\0';
+
+
+        node->left = NodeRead( tree, error );
         if (node->left) node->left->parent = node;
 
-        node->right = NodeRead( tree );
+        node->right = NodeRead( tree, error );
         if (node->right) node->right->parent = node;
 
         CleanSpace( &( tree->current_position ) );
@@ -347,7 +359,7 @@ void TreeReadFromFile( Tree_t* tree ) {
 
     bool error = false;
     tree->current_position = tree->buffer;
-    tree->root = NodeRead( tree );
+    tree->root = NodeRead( tree, &error );
 
     if ( error ) {
         fprintf( stderr, "Pizdez, не распарсилось\n" );

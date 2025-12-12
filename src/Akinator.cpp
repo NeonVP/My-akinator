@@ -26,7 +26,7 @@ enum Answer_t {
     NO  = 0
 };
 
-const size_t MAX_LEN = 128;
+const size_t MAX_LEN = 256;
 
  
 static void     ShowMenu();
@@ -404,82 +404,174 @@ static size_t BuildPath(const Node_t* root, const Node_t* target, const Node_t* 
     return 0;
 }
 
+// static void PrintTwoObjectDifference( const Tree_t* tree ) {
+//     my_assert(tree, "Null pointer on tree");
+
+//     char obj1[ MAX_LEN ] = {};
+//     char obj2[ MAX_LEN ] = {};
+
+//     fprintf( stdout, "Введите имя первого объекта: " );
+//     scanf( " %127[^\n]", obj1 );
+//     ClearBuffer();
+
+//     fprintf( stdout, "Введите имя второго объекта: " );
+//     scanf( " %127[^\n]", obj2 );
+//     ClearBuffer();
+
+//     const Node_t* n1 = SearchObject( tree, obj1 );
+//     const Node_t* n2 = SearchObject( tree, obj2 );
+
+//     if ( !n1 || !n2 ) {
+//         fprintf( stderr, COLOR_BRIGHT_RED "Одного из объектов нет в базе.\n" COLOR_RESET );
+//         return;
+//     }
+
+//     const Node_t* path1[ MAX_LEN ] = {};
+//     const Node_t* path2[ MAX_LEN ] = {};
+
+//     size_t len1 = BuildPath( tree->root, n1, path1, 0 );
+//     size_t len2 = BuildPath( tree->root, n2, path2, 0 );
+
+//     size_t diverge = 0;
+//     while ( diverge < len1 && diverge < len2 && path1[ diverge ] == path2[ diverge ] ) diverge++;
+
+//     fprintf( stdout, "\n────────────────────────────────────────────\n" );
+//     fprintf( stdout, COLOR_BRIGHT_GREEN "Сравнение \"%s\" и \"%s\":\n" COLOR_RESET, obj1, obj2 );
+//     fprintf( stdout, "────────────────────────────────────────────\n" );
+
+//     // Общие признаки
+//     fprintf( stdout, COLOR_BRIGHT_YELLOW "\nОбщие признаки:\n" COLOR_RESET );
+//     for ( size_t idx = 1; idx < diverge; idx++ ) {
+//         const Node_t* parent = path1[ idx - 1 ];
+//         const Node_t* node   = path1[ idx ];
+
+//         if ( parent->left == node )
+//             fprintf( stdout, "✔ %s\n", parent->value );
+//         else
+//             fprintf( stdout, "✖ не %s\n", parent->value );
+//     }
+
+//     // Отличия
+//     fprintf( stdout, COLOR_BRIGHT_RED "\nОтличия:\n" COLOR_RESET );
+
+//     size_t start_idx = ( diverge == 0 ? 0 : diverge - 1 );
+
+//     fprintf( stderr, "\n%s:\n", obj1 );
+//     for ( size_t idx = start_idx; idx < len1 - 1; idx++ ) {
+//         const Node_t* parent = path1[ idx ];
+//         const Node_t* node   = path1[ idx + 1 ];
+
+//         if ( parent->left == node )
+//             fprintf( stdout, "✔ %s\n", parent->value );
+//         else
+//             fprintf( stdout, "✖ не %s\n", parent->value );
+//     }
+
+//     fprintf( stdout, "\n%s:\n", obj2 );
+//     for ( size_t idx = start_idx; idx < len2 - 1; idx++ ) {
+//         const Node_t* parent = path2[ idx ];
+//         const Node_t* node   = path2[ idx + 1 ];
+
+//         if ( parent->left == node )
+//             fprintf( stdout, "✔ %s\n", parent->value );
+//         else
+//             fprintf( stdout, "✖ не %s\n", parent->value );
+//     }
+
+//     fprintf( stdout, "────────────────────────────────────────────\n\n" );
+// }
+
+static int ReadTwoObjects( char* obj1, char* obj2 ) {
+    fprintf(stdout, "Введите имя первого объекта: ");
+    if ( scanf(" %127[^\n]", obj1) != 1 ) return 0;
+    ClearBuffer();
+
+    fprintf(stdout, "Введите имя второго объекта: ");
+    if ( scanf(" %127[^\n]", obj2) != 1 ) return 0;
+    ClearBuffer();
+
+    return 1;
+}
+
+static int FindTwoNodes( const Tree_t* tree, const char* obj1, const char* obj2, const Node_t** n1, const Node_t** n2 ) {
+    *n1 = SearchObject( tree, obj1 );
+    *n2 = SearchObject( tree, obj2 );
+
+    if ( !*n1 || !*n2 ) {
+        fprintf( stderr, COLOR_BRIGHT_RED "Одного из объектов нет в базе.\n" COLOR_RESET );
+        return 0;
+    }
+    return 1;
+}
+
+static void PrintCommonTraits( const Node_t** path, size_t diverge ) {
+    fprintf( stdout, COLOR_BRIGHT_YELLOW "\nОбщие признаки:\n" COLOR_RESET );
+
+    for ( size_t idx = 1; idx < diverge; idx++ ) {
+        const Node_t* parent = path[ idx - 1 ];
+        const Node_t* node   = path[ idx ];
+
+        if ( parent->left == node )
+            fprintf( stdout, "✔ %s\n", parent->value );
+        else
+            fprintf( stdout, "✖ не %s\n", parent->value );
+    }
+}
+
+static void PrintDifferences( const char* obj, const Node_t** path, size_t len, size_t diverge )
+{
+    fprintf( stdout, "\n%s:\n", obj );
+
+    size_t start = ( diverge == 0 ? 0 : diverge - 1 );
+
+    for ( size_t idx = start; idx < len - 1; idx++ ) {
+        const Node_t* parent = path[ idx ];
+        const Node_t* node   = path[ idx + 1 ];
+
+        if ( parent->left == node )
+            fprintf( stdout, "✔ %s\n", parent->value );
+        else
+            fprintf( stdout, "✖ не %s\n", parent->value );
+    }
+}
+
 static void PrintTwoObjectDifference( const Tree_t* tree ) {
     my_assert(tree, "Null pointer on tree");
 
     char obj1[ MAX_LEN ] = {};
     char obj2[ MAX_LEN ] = {};
 
-    fprintf( stdout, "Введите имя первого объекта: " );
-    scanf( " %127[^\n]", obj1 );
-    ClearBuffer();
+    if ( !ReadTwoObjects(obj1, obj2) ) return;
 
-    fprintf( stdout, "Введите имя второго объекта: " );
-    scanf( " %127[^\n]", obj2 );
-    ClearBuffer();
+    const Node_t* n1 = NULL;
+    const Node_t* n2 = NULL;
 
-    const Node_t* n1 = SearchObject( tree, obj1 );
-    const Node_t* n2 = SearchObject( tree, obj2 );
+    if ( !FindTwoNodes( tree, obj1, obj2, &n1, &n2 ) ) return;
 
-    if ( !n1 || !n2 ) {
-        fprintf( stderr, COLOR_BRIGHT_RED "Одного из объектов нет в базе.\n" COLOR_RESET );
-        return;
-    }
-
-    const Node_t* path1[MAX_LEN] = {};
-    const Node_t* path2[MAX_LEN] = {};
+    const Node_t* path1[ MAX_LEN ] = {};
+    const Node_t* path2[ MAX_LEN ] = {};
 
     size_t len1 = BuildPath( tree->root, n1, path1, 0 );
     size_t len2 = BuildPath( tree->root, n2, path2, 0 );
 
     size_t diverge = 0;
-    while ( diverge < len1 && diverge < len2 && path1[ diverge ] == path2[ diverge ] ) diverge++;
+    while (diverge < len1 && diverge < len2 && path1[diverge] == path2[diverge])
+        diverge++;
 
     fprintf( stdout, "\n────────────────────────────────────────────\n" );
     fprintf( stdout, COLOR_BRIGHT_GREEN "Сравнение \"%s\" и \"%s\":\n" COLOR_RESET, obj1, obj2 );
     fprintf( stdout, "────────────────────────────────────────────\n" );
 
-    // Общие признаки
-    fprintf( stdout, COLOR_BRIGHT_YELLOW "\nОбщие признаки:\n" COLOR_RESET );
-    for ( size_t idx = 1; idx < diverge; idx++ ) {
-        const Node_t* parent = path1[ idx - 1 ];
-        const Node_t* node   = path1[ idx ];
+    PrintCommonTraits( path1, diverge);
 
-        if ( parent->left == node )
-            fprintf( stdout, "✔ %s\n", parent->value );
-        else
-            fprintf( stdout, "✖ не %s\n", parent->value );
-    }
-
-    // Отличия
     fprintf( stdout, COLOR_BRIGHT_RED "\nОтличия:\n" COLOR_RESET );
 
-    size_t start_idx = ( diverge == 0 ? 0 : diverge - 1 );
-
-    fprintf( stderr, "\n%s:\n", obj1 );
-    for ( size_t idx = start_idx; idx < len1 - 1; idx++ ) {
-        const Node_t* parent = path1[ idx ];
-        const Node_t* node   = path1[ idx + 1 ];
-
-        if ( parent->left == node )
-            fprintf( stdout, "✔ %s\n", parent->value );
-        else
-            fprintf( stdout, "✖ не %s\n", parent->value );
-    }
-
-    fprintf( stdout, "\n%s:\n", obj2 );
-    for ( size_t idx = start_idx; idx < len2 - 1; idx++ ) {
-        const Node_t* parent = path2[ idx ];
-        const Node_t* node   = path2[ idx + 1 ];
-
-        if ( parent->left == node )
-            fprintf( stdout, "✔ %s\n", parent->value );
-        else
-            fprintf( stdout, "✖ не %s\n", parent->value );
-    }
+    PrintDifferences( obj1, path1, len1, diverge );
+    PrintDifferences( obj2, path2, len2, diverge );
 
     fprintf( stdout, "────────────────────────────────────────────\n\n" );
 }
+
 
 static void ClearBuffer() {
     int c;
